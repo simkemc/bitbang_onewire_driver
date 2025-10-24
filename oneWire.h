@@ -113,6 +113,7 @@
  #define ONEWIRE_OVERDRIVE_SPEED  0
 
  // Set current speed mode here
+//  #define ONEWIRE_SPEED_MODE       ONEWIRE_OVERDRIVE_SPEED
  #define ONEWIRE_SPEED_MODE       ONEWIRE_STANDARD_SPEED
 
  #if (ONEWIRE_SPEED_MODE == ONEWIRE_STANDARD_SPEED)
@@ -188,39 +189,52 @@ typedef enum {
     ONEWIRE_STATE_WRITE_LOW_DRIVE_BUS_LOW,
     ONEWIRE_STATE_WRITE_LOW_RELEASE_BUS,
     ONEWIRE_STATE_WRITE_LOW_DONE,
-	// Read
-    ONEWIRE_STATE_READ_INIT,
-    ONEWIRE_STATE_READ_DRIVE_BUS_LOW,
-    ONEWIRE_STATE_READ_RELEASE_BUS,
-    ONEWIRE_STATE_READ_SAMPLE_BUS,
-    ONEWIRE_STATE_READ_DONE
+	// Master Read
+    ONEWIRE_STATE_MASTER_READ_INIT,
+    ONEWIRE_STATE_MASTER_READ_DRIVE_BUS_LOW,
+    ONEWIRE_STATE_MASTER_READ_RELEASE_BUS,
+    ONEWIRE_STATE_MASTER_READ_SAMPLE_BUS,
+    ONEWIRE_STATE_MASTER_READ_DONE,
+    // Slave Read
+    ONEWIRE_STATE_SLAVE_READ_INIT,
+    ONEWIRE_STATE_SLAVE_READ_MONITOR_BUS,
+    ONEWIRE_STATE_SLAVE_READ_RELEASE_BUS,
+    ONEWIRE_STATE_SLAVE_READ_SAMPLE_BUS,
+    ONEWIRE_STATE_SLAVE_READ_DONE,
+
 } OneWireState;
 
 typedef enum {
-    FLAG_ERROR,
-    FLAG_PRESENCE_DETECTED,
-    FLAG_BYTE_RECEIVED,
-    FLAG_BYTE_SEND
+    FLAG_ERROR,                 // set if there is error during onewire communication
+    FLAG_PRESENCE_DETECTED,     // set when slave pull down line during reset state
+    FLAG_BYTE_RECEIVED,         // set high when all 8 bit-s from rx_byte are send over bus
+    FLAG_BYTE_SEND,             // set high when all 8 bit-s from tx_byte are send over bus
+    FLAG_IS_SLAVE,              // is driver set to act as onewire slave
 } OneWireFlags;
+
+typedef enum {
+    OPERATING_MODE_MASTER,
+    OPERATING_MODE_SLAVE
+}OneWireOperatingMode;
 
 
 typedef struct {
-    uint32_t Pin;
-    GPIO_TypeDef* Port;
-    OneWireState state;        // Current state
-    uint8_t tx_byte;             // Byte to transmit
-    uint8_t rx_byte;             // Byte received
-    uint8_t bit_index;           // Bit position (0–7)
-    uint8_t presence_detected;      // Result of reset
-    TickType_t timestamp;          // For non-blocking delays
-    uint8_t error_flag;             // Error tracking
-    uint8_t flag_reg;           // 
+    uint32_t Pin;                   // GPIO pin used for OneWire communication
+    GPIO_TypeDef* Port;             // GPIO port used for OneWire communication 
+    OneWireState state;             // Current state
+    uint8_t tx_byte;                // Byte to transmit
+    uint8_t rx_byte;                // Byte received
+    uint8_t bit_index;              // Bit position (0–7)
+    TickType_t timestamp;           // For non-blocking delays
+    uint8_t flag_reg;               // error flags defined in OneWireFlags
 } OneWireDriver;
 
 
-void onewire_init(OneWireDriver* onewire, GPIO_TypeDef* port, uint32_t pin);
+void onewire_init(OneWireDriver* onewire, GPIO_TypeDef* port, uint32_t pin, OneWireOperatingMode mode);
 void onewire_process(OneWireDriver *onewire);
 void onewire_write_byte(OneWireDriver* onewire, uint8_t data);
+uint8_t onewire_data_available(OneWireDriver* onewire);
+uint8_t onewire_get_byte(OneWireDriver* onewire);
 
 #ifdef __cplusplus
 }
