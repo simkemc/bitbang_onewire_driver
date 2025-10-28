@@ -78,10 +78,10 @@
  *                   |         |       |                           |         |
  *
  * Reset + Presence Pulse:
- *          _________|_____|                           |___  |      __________|_  Master     Bus released    Slave pulls low
- *                   |     \___________________________/   \‗|‗‗‗‗‗/          |   pulls low  (wait)          to signal presence
- *                   |<-G->|<------------H------------>|<-I->|<-------J------>|
- *                   |     |                           |     |                |
+ *       ______|_____|                                                                                                  |___  |                                                            __________|_  Master     Bus released    Slave pulls low
+ *             |     \__________________________________________________________________________________________________/   \‗|‗‗‗‗‗‗‗‗‗‗‗‗‗‗‗‗‗‗‗‗‗‗‗‗‗‗‗‗‗‗‗‗‗‗‗‗‗‗‗‗‗‗‗‗‗‗‗‗‗‗‗‗‗‗‗‗‗‗‗/          |   pulls low  (wait)          to signal presence
+ *             |<-G->|<-----------------------------------------------H------------------------------------------------>|<-I->|<-------------------------------------------------------------J------>|
+ *             |     |                                                                                                  |     |                                                                      |
  *
  *
  *   ┌───────────────────────────┬─────┬─────┬─────┬─────┬─────┬─────┬─────┬─────┬─────┬─────┐
@@ -113,36 +113,48 @@
  #define ONEWIRE_OVERDRIVE_SPEED  0
 
  // Set current speed mode here
-//  #define ONEWIRE_SPEED_MODE       ONEWIRE_OVERDRIVE_SPEED
  #define ONEWIRE_SPEED_MODE       ONEWIRE_STANDARD_SPEED
+//  #define ONEWIRE_SPEED_MODE       ONEWIRE_OVERDRIVE_SPEED
 
  #if (ONEWIRE_SPEED_MODE == ONEWIRE_STANDARD_SPEED)
 
  // Standard Speed Delays (in microseconds)
- #define WRITE_1_LOW_DELAY        	6     // A
- #define WRITE_1_RELEASE_BUS_DELAY  64    // B
- #define WRITE_0_LOW_DELAY        	60    // C
- #define WRITE_0_RELEASE_BUS_DELAY  10    // D
- #define READ_RELEASE_BUS_DELAY     9     // E
- #define READ_SAMPLE_DELAY          55    // F
- #define RESET_INIT_DELAY         	0     // G
- #define RESET_DRIVE_BUS_LOW_DELAY 	480   // H
- #define RESET_RELEASE_BUS_DELAY  	70    // I
- #define RESET_SAMPLE_BUS_DELAY   	410   // J
+ #define WRITE_1_LOW_DELAY        	6     // A time of low puls for write 1
+ #define WRITE_1_RELEASE_BUS_DELAY  64    // B time of high puls for write 1
+ #define WRITE_0_LOW_DELAY        	60    // C time of low puls for write 0
+ #define WRITE_0_RELEASE_BUS_DELAY  10    // D time of high puls for write 0
+ #define READ_RELEASE_BUS_DELAY     9     // E time where bus state is ignores during read operation, stabilization time 
+ #define READ_SAMPLE_DELAY          55    // F time when bus is read for read operation
+ #define RESET_INIT_DELAY         	0     // G time where bus state is ignores before reset operation, stabilization time 
+ #define RESET_DRIVE_BUS_LOW_DELAY 	480   // H time low puls of reset signal
+ #define RESET_RELEASE_BUS_DELAY  	70    // I time where bus state is ignores during reset operation, stabilization time 
+ #define RESET_SAMPLE_BUS_DELAY   	410   // J time where bus state is read for reset operation, expecting sleave to pull down line for acknowledge presence 
 
  #else // Overdrive Speed
 
- // Overdrive Speed Delays (in microseconds)
- #define WRITE_1_LOW_DELAY        	1     // A
- #define WRITE_1_RELEASE_BUS_DELAY  7.5   // B
- #define WRITE_0_LOW_DELAY        	7.5   // C
- #define WRITE_0_RELEASE_BUS_DELAY  2.5   // D
- #define READ_RELEASE_BUS_DELAY     1     // E
- #define READ_SAMPLE_DELAY          7     // F
- #define RESET_INIT_DELAY         	2.5   // G
- #define RESET_DRIVE_BUS_LOW_DELAY 	70    // H
- #define RESET_RELEASE_BUS_DELAY  	8.5   // I
- #define RESET_SAMPLE_BUS_DELAY   	40    // J
+//  // Overdrive Speed Delays (in microseconds)
+//  #define WRITE_1_LOW_DELAY        	1     // A time of low puls for write 1
+//  #define WRITE_1_RELEASE_BUS_DELAY  7.5   // B time of high puls for write 1
+//  #define WRITE_0_LOW_DELAY        	7.5   // C time of low puls for write 0
+//  #define WRITE_0_RELEASE_BUS_DELAY  2.5   // D time of high puls for write 0
+//  #define READ_RELEASE_BUS_DELAY     1     // E time where bus state is ignores during read operation, stabilization time 
+//  #define READ_SAMPLE_DELAY          7     // F time when bus is read for read operation
+//  #define RESET_INIT_DELAY         	2.5   // G time where bus state is ignores before reset operation, stabilization time 
+//  #define RESET_DRIVE_BUS_LOW_DELAY 	70    // H time low puls of reset signal
+//  #define RESET_RELEASE_BUS_DELAY  	8.5   // I time where bus state is ignores during reset operation, stabilization time 
+//  #define RESET_SAMPLE_BUS_DELAY   	40    // J time where bus state is read for reset operation, expecting sleave to pull down line for acknowledge presence 
+
+// Overdrive Speed Delays (in microseconds)
+ #define WRITE_1_LOW_DELAY        	1     // (A) time of low puls for write 1
+ #define WRITE_1_RELEASE_BUS_DELAY  7   // (B) time of high puls for write 1
+ #define WRITE_0_LOW_DELAY        	7   // (C) time of low puls for write 0
+ #define WRITE_0_RELEASE_BUS_DELAY  2   // (D) time of high puls for write 0
+ #define READ_RELEASE_BUS_DELAY     1     // (E) time where bus state is ignores during read operation, stabilization time 
+ #define READ_SAMPLE_DELAY          7     // (F) time when bus is read for read operation
+ #define RESET_INIT_DELAY         	2   // (G) time where bus state is ignores before reset operation, stabilization time 
+ #define RESET_DRIVE_BUS_LOW_DELAY 	70    // (H) time low puls of reset signal
+ #define RESET_RELEASE_BUS_DELAY  	8   // (I) time where bus state is ignores during reset operation, stabilization time 
+ #define RESET_SAMPLE_BUS_DELAY   	40    // (J) time where bus state is read for reset operation, expecting sleave to pull down line for acknowledge presence 
 
  #endif
 
@@ -196,12 +208,15 @@ typedef enum {
     ONEWIRE_STATE_MASTER_READ_SAMPLE_BUS,
     ONEWIRE_STATE_MASTER_READ_DONE,
     // Slave Read
-    ONEWIRE_STATE_SLAVE_READ_INIT,
-    ONEWIRE_STATE_SLAVE_READ_MONITOR_BUS,
-    ONEWIRE_STATE_SLAVE_READ_RELEASE_BUS,
-    ONEWIRE_STATE_SLAVE_READ_SAMPLE_BUS,
-    ONEWIRE_STATE_SLAVE_READ_DONE,
-
+    ONEWIRE_STATE_SLAVE_READ_INIT,              // 0
+    ONEWIRE_STATE_SLAVE_READ_MONITOR_BUS,       // 1
+    ONEWIRE_STATE_SLAVE_READ_RELEASE_BUS,       // 2
+    ONEWIRE_STATE_SLAVE_READ_SAMPLE_BUS,        // 3
+    ONEWIRE_STATE_SLAVE_READ_DELAY_BUS,         // 4
+    ONEWIRE_STATE_SLAVE_RESET_MONITOR_BUS,      // 5
+    ONEWIRE_STATE_SLAVE_RESET_RELEASE_BUS,      // 6
+    ONEWIRE_STATE_SLAVE_RESET_SAMPLE_BUS,       // 7
+    ONEWIRE_STATE_SLAVE_READ_DONE,              // 8
 } OneWireState;
 
 typedef enum {
@@ -233,7 +248,7 @@ typedef struct {
 void onewire_init(OneWireDriver* onewire, GPIO_TypeDef* port, uint32_t pin, OneWireOperatingMode mode);
 void onewire_process(OneWireDriver *onewire);
 void onewire_write_byte(OneWireDriver* onewire, uint8_t data);
-uint8_t onewire_data_available(OneWireDriver* onewire);
+uint8_t onewire_is_data_available(OneWireDriver* onewire);
 uint8_t onewire_get_byte(OneWireDriver* onewire);
 
 #ifdef __cplusplus
