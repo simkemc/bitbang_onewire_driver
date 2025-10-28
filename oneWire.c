@@ -186,7 +186,6 @@ static uint8_t get_flag(OneWireDriver* onewire, OneWireFlags flag_bit) {
 	return 0;
 }
 
-
 static void store_read_bit(OneWireDriver* onewire, uint8_t value) {
     if (value) {
         onewire->rx_byte |= (1 << onewire->bit_index);   // Set bit
@@ -204,6 +203,7 @@ static void set_write_init_state(OneWireDriver* onewire,uint8_t bit) {
 		onewire->state = ONEWIRE_STATE_WRITE_LOW_INIT;
 	}
 }
+
 static void handle_write_bit_done_state(OneWireDriver* onewire){
 	onewire->bit_index++;
 	// set int state
@@ -218,7 +218,6 @@ static void handle_write_bit_done_state(OneWireDriver* onewire){
 		set_write_init_state(onewire, (onewire->tx_byte >> onewire->bit_index)& 0x01);
 	}
 }
-
 
 void onewire_init(OneWireDriver* onewire, GPIO_TypeDef* port, uint32_t pin, OneWireOperatingMode mode) {
 
@@ -326,38 +325,22 @@ void onewire_process(OneWireDriver *onewire){
 			pull_high(onewire);
 		}
 		break;
-	// slave read
-	case ONEWIRE_STATE_SLAVE_READ_INIT:
-		if (read_pin(onewire) == GPIO_PIN_RESET) {
-			set_state(onewire,ONEWIRE_STATE_SLAVE_READ_MONITOR_BUS);
-		}
-		break;
-	case ONEWIRE_STATE_SLAVE_READ_MONITOR_BUS:
-		if (is_time_expired(onewire,pdMS_TO_TICKS(WRITE_1_LOW_DELAY))){
-			set_state(onewire,ONEWIRE_STATE_SLAVE_READ_RELEASE_BUS);
-		}
-
-		break;
-	// same steps for master and slave read
 	case ONEWIRE_STATE_MASTER_READ_RELEASE_BUS:
-	case ONEWIRE_STATE_SLAVE_READ_RELEASE_BUS:
 		if (is_time_expired(onewire, pdMS_TO_TICKS(READ_RELEASE_BUS_DELAY))){
-			set_state(onewire, (onewire->state == ONEWIRE_STATE_SLAVE_READ_RELEASE_BUS ? ONEWIRE_STATE_SLAVE_READ_SAMPLE_BUS : ONEWIRE_STATE_MASTER_READ_SAMPLE_BUS));
+			set_state(onewire, ONEWIRE_STATE_MASTER_READ_SAMPLE_BUS);
 		}
 	case ONEWIRE_STATE_MASTER_READ_SAMPLE_BUS:
-    case ONEWIRE_STATE_SLAVE_READ_SAMPLE_BUS:
-		if (!is_time_expired(onewire, pdMS_TO_TICKS(READ_SAMPLE_DELAY))){
-			if (read_pin(onewire) == GPIO_PIN_RESET){
+		if (!is_time_expired(onewire, pdMS_TO_TICKS(READ_SAMPLE_DELAY - WRITE_0_RELEASE_BUS_DELAY))){
+			if (read_pin(onewire) == GPIO_PIN_RESET && sampled_bus_bit != GPIO_PIN_RESET){
 				sampled_bus_bit = GPIO_PIN_RESET; //set temp bit to 0
 			}
 		}
 		else {
 			store_read_bit(onewire, sampled_bus_bit); // shift value from bus to left by index
-			set_state(onewire, (onewire->state == ONEWIRE_STATE_SLAVE_READ_SAMPLE_BUS ? ONEWIRE_STATE_SLAVE_READ_DONE : ONEWIRE_STATE_MASTER_READ_DONE));
+			set_state(onewire, ONEWIRE_STATE_MASTER_READ_DONE);
 		}
 		break;
 	case ONEWIRE_STATE_MASTER_READ_DONE:
-    case ONEWIRE_STATE_SLAVE_READ_DONE:
 		onewire->bit_index++; // move index 
 		sampled_bus_bit = GPIO_PIN_SET;// set bit to start value	
 		if (onewire->bit_index >= 8){
@@ -367,9 +350,91 @@ void onewire_process(OneWireDriver *onewire){
 			set_state(onewire, ONEWIRE_STATE_IDLE);
 		}		
 		else {
-			set_state(onewire, (onewire->state == ONEWIRE_STATE_SLAVE_READ_DONE ? ONEWIRE_STATE_SLAVE_READ_INIT : ONEWIRE_STATE_MASTER_READ_INIT)); // continue reading until all 8 bits are read
+			set_state(onewire, ONEWIRE_STATE_MASTER_READ_INIT); // continue reading until all 8 bits are read
 		}
 		break;
+	// slave read
+	case ONEWIRE_STATE_SLAVE_READ_INIT:
+		if (read_pin(onewire) == GPIO_PIN_RESET) {
+			set_state(onewire,ONEWIRE_STATE_SLAVE_READ_MONITOR_BUS);
+		}
+		break;
+	case ONEWIRE_STATE_SLAVE_READ_MONITOR_BUS:
+		if (is_time_expired(onewire, pdMS_TO_TICKS(WRITE_1_LOW_DELAY))){
+			set_state(onewire,ONEWIRE_STATE_SLAVE_READ_RELEASE_BUS);
+		}
+		break;
+	case ONEWIRE_STATE_SLAVE_READ_RELEASE_BUS:
+		if (is_time_expired(onewire,pdMS_TO_TICKS(READ_RELEASE_BUS_DELAY))){
+			set_state(onewire,ONEWIRE_STATE_SLAVE_READ_SAMPLE_BUS);
+		}
+		break;
+	case ONEWIRE_STATE_SLAVE_READ_SAMPLE_BUS:
+		if (is_time_expired(onewire,pdMS_TO_TICKS(READ_SAMPLE_DELAY - WRITE_0_RELEASE_BUS_DELAY))){
+			set_state(onewire, ONEWIRE_STATE_SLAVE_READ_DELAY_BUS);
+		}
+		else {
+			// check if low until time for sampling expired
+			if (sampled_bus_bit != GPIO_PIN_RESET){
+				if ((read_pin(onewire) == GPIO_PIN_RESET)){
+					sampled_bus_bit = GPIO_PIN_RESET; //set temp bit to 0
+				}
+			}
+		}
+		break;
+	case ONEWIRE_STATE_SLAVE_READ_DELAY_BUS:
+		if (is_time_expired(onewire, pdMS_TO_TICKS(WRITE_0_RELEASE_BUS_DELAY))) {
+			if(read_pin(onewire) == GPIO_PIN_SET) {
+				store_read_bit(onewire, sampled_bus_bit); // shift value from bus to left by index
+				set_state(onewire, ONEWIRE_STATE_SLAVE_READ_DONE);
+			}
+			else {
+				set_state(onewire, ONEWIRE_STATE_SLAVE_RESET_MONITOR_BUS);
+			}
+		}
+		;
+		break;
+	case ONEWIRE_STATE_SLAVE_RESET_MONITOR_BUS:
+		if (is_time_expired(onewire, pdMS_TO_TICKS(RESET_DRIVE_BUS_LOW_DELAY-WRITE_1_LOW_DELAY-READ_RELEASE_BUS_DELAY-READ_SAMPLE_DELAY))){
+			if (read_pin(onewire) == GPIO_PIN_RESET){
+				set_state(onewire, ONEWIRE_STATE_SLAVE_RESET_RELEASE_BUS);
+			}
+			else {
+				set_flag(onewire, FLAG_ERROR);
+				set_state(onewire, ONEWIRE_STATE_ERROR);
+			}
+		}
+		break;
+	case ONEWIRE_STATE_SLAVE_RESET_RELEASE_BUS:
+		if (is_time_expired(onewire, RESET_RELEASE_BUS_DELAY)) {
+			set_state(onewire, ONEWIRE_STATE_SLAVE_RESET_SAMPLE_BUS);
+		}
+		break;
+	case ONEWIRE_STATE_SLAVE_RESET_SAMPLE_BUS:
+		if (is_time_expired(onewire, RESET_SAMPLE_BUS_DELAY)){
+			pull_high(onewire); // release bus 
+			set_state(onewire, ONEWIRE_STATE_SLAVE_READ_INIT);
+		}
+		else {
+			pull_low(onewire); // send signal to master that you are present
+			set_flag(onewire, FLAG_PRESENCE_DETECTED);
+		}
+		break;
+	case ONEWIRE_STATE_SLAVE_READ_DONE:
+		onewire->bit_index++; // move index 
+		sampled_bus_bit = GPIO_PIN_SET;// set bit to start value	
+		if (onewire->bit_index >= 8){
+			set_flag(onewire, FLAG_BYTE_RECEIVED); // we received whole byte of data
+			// prepair for new byte
+			onewire->bit_index = 0;
+			set_state(onewire, ONEWIRE_STATE_IDLE);
+		}		
+		else {
+			set_state(onewire, ONEWIRE_STATE_SLAVE_READ_INIT); // continue reading until all 8 bits are read
+		}
+		break;
+	
+
 	default:
 		set_state(onewire, ONEWIRE_STATE_ERROR); // state not defined
 		set_flag(onewire, FLAG_ERROR);
@@ -384,7 +449,7 @@ void onewire_write_byte(OneWireDriver* onewire, uint8_t data) {
 	set_write_init_state(onewire, data & 0x01);// set state to write 0 or 1 depending of first(0) bite
 }
 
-uint8_t onewire_data_available(OneWireDriver* onewire){
+uint8_t onewire_is_data_available(OneWireDriver* onewire){
 	return get_flag(onewire, FLAG_BYTE_RECEIVED);
 }
 
