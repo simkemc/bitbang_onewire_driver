@@ -276,8 +276,8 @@ void onewire_process(OneWireDriver *onewire){
 			if (get_flag(onewire, FLAG_PRESENCE_DETECTED) !=0){
 				set_flag(onewire, FLAG_ERROR);
 			}
-			break;
 		}
+		break;
 	// write high
 	case ONEWIRE_STATE_WRITE_HIGH_INIT:
 		set_state(onewire,ONEWIRE_STATE_WRITE_HIGH_DRIVE_BUS_LOW);
@@ -441,6 +441,15 @@ void onewire_process(OneWireDriver *onewire){
 		
 		
 	}
+}
+
+void onewire_reset(OneWireDriver* onewire) {
+	if(!get_flag(onewire, FLAG_IS_SLAVE)){
+		set_state(onewire, ONEWIRE_STATE_RESET_INIT);
+	}
+}
+uint8_t onewire_is_slave_present(OneWireDriver* onewire) {
+	return get_flag(onewire, FLAG_PRESENCE_DETECTED);
 }
 
 void onewire_write_byte(OneWireDriver* onewire, uint8_t data) {
